@@ -5,7 +5,8 @@ Sends a workflow status notification to a matrix room.
 ## Login and room info
 
 Input: `homeserver`
-Input: `access_token`
+Input: `login`
+Input: `password`
 
 The homeserver and access token of an account can be found at the bottom of Settings > Help & About in the Element Web client.
 

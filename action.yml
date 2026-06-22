@@ -5,7 +5,10 @@ inputs:
   homeserver:
     required: true
 
-  access_token:
+  login:
+    required: true
+
+  password:
     required: true
 
   room_id:
@@ -40,11 +43,17 @@ runs:
       with:
         python-version: ">=3.13"
 
+    - name: Install dependencies
+      run: |
+        cd "$GITHUB_ACTION_PATH"
+        pip install -r requirements.txt
+
     - name: Send Matrix message
-      shell: python
+      shell: bash
       env:
         HOMESERVER: ${{ inputs.homeserver }}
-        ACCESS_TOKEN: ${{ inputs.access_token }}
+        LOGIN: ${{ inputs.login }}
+        PASSWORD: ${{ inputs.password }}
         ROOM_ID: ${{ inputs.room_id }}
         STATUS: ${{ inputs.status }}
         REPO: ${{ inputs.repository }}
@@ -52,62 +61,5 @@ runs:
         LINK: ${{ inputs.link }}
         TAG_ALL: ${{ inputs.tag_all }}
       run: |
-        import os
-        import json
-        import urllib.request
-        import urllib.error
-        from datetime import datetime, timezone
-        from zoneinfo import ZoneInfo
-
-        status = os.environ["STATUS"]
-        assert status in {"success", "failure", "skipped"}
-        repo = os.environ["REPO"].partition("/")[-1] # drop owner
-        name = os.environ["NAME"]
-        link = os.environ["LINK"]
-        tag_all = os.environ.get("TAG_ALL", "false").lower() in {"true", "1", "yes", "y", "t"}
-
-        icon = {
-            "success": "🟢",
-            "failure": "🟥",
-            "skipped": "🔷",
-        }.get(status)
-
-        ts = datetime.now(ZoneInfo("Europe/Berlin")).strftime("%d.%m.%yT%H:%M")
-
-        mention = " @room" if tag_all else ""
-
-        body = f"{icon} {repo}/{name} {link} {ts}"
-        formatted_body = f'{icon} <a href="{link}">{repo}/{name}</a> {ts} {mention}'
-
-        homeserver = os.environ["HOMESERVER"].rstrip("/")
-        token = os.environ["ACCESS_TOKEN"]
-        room_id = os.environ["ROOM_ID"]
-
-        txn_id = str(int(datetime.now(timezone.utc).timestamp() * 1e9))
-
-        url = "/".join([
-          homeserver, "_matrix", "client","v3","rooms", room_id, "send", "m.room.message", txn_id
-        ])
-
-        payload = {
-            "msgtype": "m.text",
-            "body": body,
-            "format": "org.matrix.custom.html",
-            "formatted_body": formatted_body,
-        }
-
-        req = urllib.request.Request(
-            url=url,
-            data=json.dumps(payload).encode("utf-8"),
-            method="PUT",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-        )
-
-        try:
-            with urllib.request.urlopen(req) as resp:
-                resp.read()
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(e.read().decode("utf-8")) from e
+        cd "$GITHUB_ACTION_PATH"
+        python ./notify.py
